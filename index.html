@@ -7,13 +7,61 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-size: 2vw; font-family: sans-serif; overflow: hidden; }
-    #game, #startOverlay, #failOverlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
-    #startOverlay, #failOverlay { display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.7); color: white; flex-direction: column; }
-    #game { display: none; background: #111; overflow: hidden; }
-    .word { position: absolute; color: #0f0; }
-    #inputBox { position: absolute; bottom: 2vw; left: 50%; transform: translateX(-50%); width: 60vw; font-size: 2vw; padding: 1vw; }
-    button { font-size: 2vw; padding: 1vw 2vw; margin-top: 2vw; }
-    #backgroundImage { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+    #game, #startOverlay, #failOverlay, #successOverlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
+    #startOverlay, #failOverlay, #successOverlay {
+      display: flex; justify-content: center; align-items: center;
+      background: rgba(0,0,0,0.7); color: white; flex-direction: column;
+      text-align: center; padding: 2vw;
+    }
+    /* 게임 화면: 배경 이미지 적용 가능 */
+    #game { display: none; background: transparent; overflow: hidden; }
+    #gameBgImage {
+      position: absolute; width: 100%; height: 100%; object-fit: cover;
+      z-index: -1;
+    }
+    .word {
+      position: absolute;
+      color: #000;
+    }
+    #inputBox {
+      position: absolute;
+      bottom: 2vw;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60vw;
+      font-size: 2vw;
+      padding: 1vw;
+      color: #000;
+    }
+    #floorLine {
+      position: absolute;
+      top: calc(100vh - 10vw);
+      left: 0;
+      width: 100%;
+      height: 0.3vw;
+      background: red;
+      opacity: 0.7;
+    }
+    #lives {
+      position: absolute;
+      top: 2vw;
+      right: 2vw;
+      font-size: 2vw;
+      color: #000;
+    }
+    #score {
+      position: absolute;
+      top: 2vw;
+      left: 2vw;
+      font-size: 2vw;
+      color: #000;
+    }
+    button {
+      font-size: 2vw;
+      padding: 1vw 2vw;
+      margin-top: 2vw;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -21,98 +69,147 @@
   <audio id="bgMusic" loop>
     <source src="background.mp3" type="audio/mpeg">
   </audio>
-
-  <!-- 배경 이미지 -->
-  <img id="backgroundImage" src="background.jpg" alt="배경 이미지">
+  <!-- 성공/실패 효과음 삽입 -->
+  <audio id="successSound"><source src="success.mp3" type="audio/mpeg"></audio>
+  <audio id="failSound"><source src="fail.mp3" type="audio/mpeg"></audio>
 
   <!-- 시작 오버레이 -->
   <div id="startOverlay">
     <p>당신은 정보보안전문가입니다</p>
-    <p>현재 해커의 공격이 이어지고 있으니 떨어지는 보안코드를 입력해서 정보 보안을 지켜주세요</p>
+    <p>현재 해커의 공격이 이어지고 있습니다.</p>
+    <p>떨어지는 보안코드를 15개 입력해서 정보 보안을 지켜주세요</p>
     <button id="startBtn">시작</button>
   </div>
 
   <!-- 게임 화면 -->
   <div id="game">
+    <!-- 게임 배경 이미지: 원하는 파일명으로 교체 -->
+    <img id="gameBgImage" src="game-background.jpg" alt="게임 배경 이미지">
+    <div id="floorLine"></div>
+    <div id="lives">❤️❤️❤️</div>
+    <div id="score">0/15</div>
     <input id="inputBox" type="text" placeholder="타이핑하여 공격을 방어하세요..." autocomplete="off" />
   </div>
 
   <!-- 실패 오버레이 -->
   <div id="failOverlay" style="display:none;">
     <p>실패했습니다. 다시 도전하시겠습니까?</p>
-    <button id="retryBtn">다시 도전하기</button>
+    <button id="retryBtn">재도전하기</button>
+  </div>
+
+  <!-- 성공 오버레이 -->
+  <div id="successOverlay" style="display:none;">
+    <p>방어 성공</p>
+    <p>입장 비밀번호는 7832입니다</p>
+    <p>창을 닫고 ZEP으로 돌아가세요</p>
   </div>
 
   <script>
-    const words = ["사과","바나나","포도","오렌지","키위","수박","멜론","체리","복숭아","자몽","망고","레몬","라임","딸기","블루베리","파인애플","코코넛","자두","무화과","석류"];
+    const words = [
+      "사과","바나나","포도","오렌지","키위","수박","멜론",
+      "체리","복숭아","자몽","망고","레몬","라임","딸기",
+      "블루베리","파인애플","코코넛","자두","무화과","석류"
+    ];
     let activeWords = [];
     let fallen = 0;
+    let successCount = 0;
     let intervalId;
+    let gameActive = false;
+
     const game = document.getElementById('game');
     const inputBox = document.getElementById('inputBox');
     const bgMusic = document.getElementById('bgMusic');
-    
+    const successSound = document.getElementById('successSound');
+    const failSound = document.getElementById('failSound');
+    const livesDisplay = document.getElementById('lives');
+    const scoreDisplay = document.getElementById('score');
+
     document.getElementById('startBtn').onclick = () => {
       document.getElementById('startOverlay').style.display = 'none';
       game.style.display = 'block';
       bgMusic.play();
+      gameActive = true;
       startGame();
+      inputBox.focus();
     };
-    
-    document.getElementById('retryBtn').onclick = () => {
-      location.reload();
-    };
-    
+
+    document.getElementById('retryBtn').onclick = () => location.reload();
+
     function startGame() {
-      intervalId = setInterval(() => {
-        if (activeWords.length < 20) spawnWord();
-      }, 1000);
-      animate();
+      intervalId = setInterval(() => { if (gameActive) spawnWord(); }, 1000);
+      requestAnimationFrame(animate);
     }
-    
+
     function spawnWord() {
       const word = document.createElement('div');
-      word.className = 'word';
-      word.textContent = words[Math.floor(Math.random()*words.length)];
-      word.style.left = Math.random()*90 + 'vw';
+      word.className = 'word'; 
+      word.textContent = words[Math.floor(Math.random() * words.length)];
+      word.style.left = `${Math.random() * 90}vw`;
       word.style.top = '-5vh';
-      word.speed = 0.2 + Math.random()*0.3;
+      word.speed = 0.2 + Math.random() * 0.3;
       game.appendChild(word);
       activeWords.push(word);
     }
-    
+
     function animate() {
+      if (!gameActive) return;
       activeWords.forEach((w, i) => {
         const top = parseFloat(w.style.top);
-        if (top > 100) {
+        if (top > 90) { 
           game.removeChild(w);
-          activeWords.splice(i,1);
+          activeWords.splice(i, 1);
           fallen++;
+          updateLives();
           if (fallen >= 3) fail();
         } else {
-          w.style.top = (top + w.speed) + 'vh';
+          w.style.top = `${top + w.speed}vh`;
         }
       });
       requestAnimationFrame(animate);
     }
-    
+
     inputBox.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        const val = inputBox.value.trim();
-        inputBox.value = '';
-        activeWords.forEach((w, i) => {
-          if (w.textContent === val) {
-            game.removeChild(w);
-            activeWords.splice(i,1);
-          }
-        });
-      }
+      if (!gameActive || e.key !== 'Enter') return;
+      const val = inputBox.value.trim();
+      inputBox.value = '';
+      let matched = false;
+      activeWords.forEach((w, i) => {
+        if (w.textContent === val) {
+          matched = true;
+          successSound.play();
+          game.removeChild(w);
+          activeWords.splice(i, 1);
+          successCount++;
+          updateScore();
+          if (successCount >= 15) success();
+        }
+      });
+      if (!matched) failSound.play();
     });
-    
+
+    function updateLives() {
+      livesDisplay.textContent = '❤️'.repeat(Math.max(0, 3 - fallen));
+    }
+
+    function updateScore() {
+      scoreDisplay.textContent = `${successCount}/15`;
+    }
+
     function fail() {
+      gameActive = false;
       clearInterval(intervalId);
       bgMusic.pause();
+      failSound.play();
       document.getElementById('failOverlay').style.display = 'flex';
+      game.style.display = 'none';
+    }
+
+    function success() {
+      gameActive = false;
+      clearInterval(intervalId);
+      bgMusic.pause();
+      successSound.play();
+      document.getElementById('successOverlay').style.display = 'flex';
       game.style.display = 'none';
     }
   </script>
