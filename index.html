@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>타자 보안 게임</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-size: 2vw; font-family: sans-serif; overflow: hidden; }
+    #game, #startOverlay, #failOverlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
+    #startOverlay, #failOverlay { display: flex; justify-content: center; align-items: center; background: rgba(0,0,0,0.7); color: white; flex-direction: column; }
+    #game { display: none; background: #111; overflow: hidden; }
+    .word { position: absolute; color: #0f0; }
+    #inputBox { position: absolute; bottom: 2vw; left: 50%; transform: translateX(-50%); width: 60vw; font-size: 2vw; padding: 1vw; }
+    button { font-size: 2vw; padding: 1vw 2vw; margin-top: 2vw; }
+    #backgroundImage { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+  </style>
+</head>
+<body>
+  <!-- 배경 음악 -->
+  <audio id="bgMusic" loop>
+    <source src="background.mp3" type="audio/mpeg">
+  </audio>
+
+  <!-- 배경 이미지 -->
+  <img id="backgroundImage" src="background.jpg" alt="배경 이미지">
+
+  <!-- 시작 오버레이 -->
+  <div id="startOverlay">
+    <p>당신은 정보보안전문가입니다</p>
+    <p>현재 해커의 공격이 이어지고 있으니 떨어지는 보안코드를 입력해서 정보 보안을 지켜주세요</p>
+    <button id="startBtn">시작</button>
+  </div>
+
+  <!-- 게임 화면 -->
+  <div id="game">
+    <input id="inputBox" type="text" placeholder="타이핑하여 공격을 방어하세요..." autocomplete="off" />
+  </div>
+
+  <!-- 실패 오버레이 -->
+  <div id="failOverlay" style="display:none;">
+    <p>실패했습니다. 다시 도전하시겠습니까?</p>
+    <button id="retryBtn">다시 도전하기</button>
+  </div>
+
+  <script>
+    const words = ["사과","바나나","포도","오렌지","키위","수박","멜론","체리","복숭아","자몽","망고","레몬","라임","딸기","블루베리","파인애플","코코넛","자두","무화과","석류"];
+    let activeWords = [];
+    let fallen = 0;
+    let intervalId;
+    const game = document.getElementById('game');
+    const inputBox = document.getElementById('inputBox');
+    const bgMusic = document.getElementById('bgMusic');
+    
+    document.getElementById('startBtn').onclick = () => {
+      document.getElementById('startOverlay').style.display = 'none';
+      game.style.display = 'block';
+      bgMusic.play();
+      startGame();
+    };
+    
+    document.getElementById('retryBtn').onclick = () => {
+      location.reload();
+    };
+    
+    function startGame() {
+      intervalId = setInterval(() => {
+        if (activeWords.length < 20) spawnWord();
+      }, 1000);
+      animate();
+    }
+    
+    function spawnWord() {
+      const word = document.createElement('div');
+      word.className = 'word';
+      word.textContent = words[Math.floor(Math.random()*words.length)];
+      word.style.left = Math.random()*90 + 'vw';
+      word.style.top = '-5vh';
+      word.speed = 0.2 + Math.random()*0.3;
+      game.appendChild(word);
+      activeWords.push(word);
+    }
+    
+    function animate() {
+      activeWords.forEach((w, i) => {
+        const top = parseFloat(w.style.top);
+        if (top > 100) {
+          game.removeChild(w);
+          activeWords.splice(i,1);
+          fallen++;
+          if (fallen >= 3) fail();
+        } else {
+          w.style.top = (top + w.speed) + 'vh';
+        }
+      });
+      requestAnimationFrame(animate);
+    }
+    
+    inputBox.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const val = inputBox.value.trim();
+        inputBox.value = '';
+        activeWords.forEach((w, i) => {
+          if (w.textContent === val) {
+            game.removeChild(w);
+            activeWords.splice(i,1);
+          }
+        });
+      }
+    });
+    
+    function fail() {
+      clearInterval(intervalId);
+      bgMusic.pause();
+      document.getElementById('failOverlay').style.display = 'flex';
+      game.style.display = 'none';
+    }
+  </script>
+</body>
+</html>
