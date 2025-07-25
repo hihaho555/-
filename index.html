@@ -7,21 +7,57 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-size: 2vw; font-family: sans-serif; overflow: hidden; }
-    #game, #startOverlay, #failOverlay, #successOverlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
+    /* 오버레이 공통 스타일 */
     #startOverlay, #failOverlay, #successOverlay {
-      display: flex; justify-content: center; align-items: center;
-      background: rgba(0,0,0,0.7); color: white; flex-direction: column;
-      text-align: center; padding: 2vw;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      text-align: center;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 2vw;
     }
-    /* 게임 화면: 배경 이미지 적용 가능 */
-    #game { display: none; background: transparent; overflow: hidden; }
+    /* 오버레이 텍스트 여백 */
+    #startOverlay p,
+    #failOverlay p,
+    #successOverlay p {
+      margin-bottom: 1.5vw;
+    }
+    /* 오버레이 버튼 여백 */
+    #startOverlay button,
+    #failOverlay button,
+    #successOverlay button {
+      margin-top: 1.5vw;
+      font-size: 2vw;
+      padding: 1vw 2vw;
+      cursor: pointer;
+    }
+    /* 게임 화면 */
+    #game {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: none;
+      overflow: hidden;
+    }
     #gameBgImage {
-      position: absolute; width: 100%; height: 100%; object-fit: cover;
-      z-index: -1;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
     .word {
       position: absolute;
-      color: #000;
+      color: #fff;
+      font-size: 3vw;
     }
     #inputBox {
       position: absolute;
@@ -32,6 +68,10 @@
       font-size: 2vw;
       padding: 1vw;
       color: #000;
+      background: rgba(255,255,255,0.5);
+      border: none;
+      outline: none;
+      z-index: 5;
     }
     #floorLine {
       position: absolute;
@@ -47,21 +87,35 @@
       top: 2vw;
       right: 2vw;
       font-size: 2vw;
-      color: #000;
+      color: #fff;
+      z-index: 5;
     }
     #score {
       position: absolute;
       top: 2vw;
       left: 2vw;
       font-size: 2vw;
-      color: #000;
+      color: #fff;
+      z-index: 5;
     }
-    button {
-      font-size: 2vw;
-      padding: 1vw 2vw;
-      margin-top: 2vw;
+    /* 음악 제어 바 */
+    #musicControl {
+      position: absolute;
+      top: 2vw;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 1vw;
+      background: rgba(255,255,255,0.5);
+      padding: 0.5vw;
+      border-radius: 1vw;
+      z-index: 5;
+    }
+    #musicControl button,
+    #musicControl input {
+      font-size: 1.5vw;
       cursor: pointer;
-      color: #000;
     }
   </style>
 </head>
@@ -70,9 +124,13 @@
   <audio id="bgMusic" loop>
     <source src="https://folio.itt.link/attachfiles/upload/board/SITE_000000000000001/321/BBSMSTR_000003218302/FILE_000000005948401_1" type="audio/mpeg">
   </audio>
-  <!-- 성공/실패 효과음 -->
-  <audio id="successSound"><source src="https://folio.itt.link/attachfiles/upload/board/SITE_000000000000001/321/BBSMSTR_000003218302/FILE_000000005948384_2" type="audio/mpeg"></audio>
-  <audio id="failSound"><source src="https://folio.itt.link/attachfiles/upload/board/SITE_000000000000001/321/BBSMSTR_000003218302/FILE_000000005948384_1" type="audio/mpeg"></audio>
+  <!-- 효과음 -->
+  <audio id="successSound">
+    <source src="https://folio.itt.link/attachfiles/upload/board/SITE_000000000000001/321/BBSMSTR_000003218302/FILE_000000005948384_2" type="audio/mpeg">
+  </audio>
+  <audio id="failSound">
+    <source src="https://folio.itt.link/attachfiles/upload/board/SITE_000000000000001/321/BBSMSTR_000003218302/FILE_000000005948384_1" type="audio/mpeg">
+  </audio>
 
   <!-- 시작 오버레이 -->
   <div id="startOverlay">
@@ -84,12 +142,15 @@
 
   <!-- 게임 화면 -->
   <div id="game">
-    <!-- 게임 배경 이미지: URL 또는 파일명 교체 -->
     <img id="gameBgImage" src="https://folio.itt.link/attachfiles/upload/board/SITE_000000000000001/321/BBSMSTR_000003218302/FILE_000000005948383_2" alt="게임 배경 이미지">
     <div id="floorLine"></div>
     <div id="lives">❤️❤️❤️</div>
     <div id="score">0/15</div>
     <input id="inputBox" type="text" placeholder="타이핑하여 공격을 방어하세요..." autocomplete="off" />
+    <div id="musicControl">
+      <button id="muteBtn">음소거</button>
+      <input id="volumeSlider" type="range" min="0" max="1" step="0.01">
+    </div>
   </div>
 
   <!-- 실패 오버레이 -->
@@ -107,12 +168,8 @@
 
   <script>
     const words = ["사과","바나나","포도","오렌지","키위","수박","멜론","체리","복숭아","자몽","망고","레몬","라임","딸기","블루베리","파인애플","코코넛","자두","무화과","석류"];
-    let activeWords = [];
-    let fallen = 0;
-    let successCount = 0;
-    let intervalId;
+    let activeWords = [], fallen = 0, successCount = 0, intervalId;
     let gameActive = false;
-
     const game = document.getElementById('game');
     const inputBox = document.getElementById('inputBox');
     const bgMusic = document.getElementById('bgMusic');
@@ -121,11 +178,14 @@
     const livesDisplay = document.getElementById('lives');
     const scoreDisplay = document.getElementById('score');
     const floorLine = document.getElementById('floorLine');
+    const muteBtn = document.getElementById('muteBtn');
+    const volumeSlider = document.getElementById('volumeSlider');
 
     document.getElementById('startBtn').onclick = () => {
       document.getElementById('startOverlay').style.display = 'none';
       game.style.display = 'block';
-      bgMusic.play();
+      bgMusic.volume = 0.5; bgMusic.play();
+      volumeSlider.value = bgMusic.volume;
       gameActive = true;
       startGame();
       inputBox.focus();
@@ -133,85 +193,74 @@
 
     document.getElementById('retryBtn').onclick = () => location.reload();
 
+    muteBtn.onclick = () => {
+      bgMusic.muted = !bgMusic.muted;
+      muteBtn.textContent = bgMusic.muted ? '음소리' : '음소거';
+    };
+    volumeSlider.oninput = () => { bgMusic.volume = volumeSlider.value; };
+
     function startGame() {
-      intervalId = setInterval(() => { if (gameActive) spawnWord(); }, 1000);
+      intervalId = setInterval(() => { gameActive && spawnWord(); }, 1000);
       requestAnimationFrame(animate);
     }
-
     function spawnWord() {
-      const word = document.createElement('div');
-      word.className = 'word';
-      word.textContent = words[Math.floor(Math.random() * words.length)];
-      word.style.left = `${Math.random() * 90}vw`;
-      word.style.top = '-5vh';
-      word.speed = 0.2 + Math.random() * 0.3;
-      game.appendChild(word);
-      activeWords.push(word);
+      const w = document.createElement('div');
+      w.className = 'word';
+      w.textContent = words[Math.floor(Math.random() * words.length)];
+      w.style.left = `${Math.random() * 90}vw`;
+      w.style.top = '-5vh';
+      w.speed = 0.2 + Math.random() * 0.1;
+      game.appendChild(w);
+      activeWords.push(w);
     }
-
     function animate() {
       if (!gameActive) return;
       const floorY = floorLine.getBoundingClientRect().top;
       activeWords.slice().forEach((w, i) => {
         const rect = w.getBoundingClientRect();
         if (rect.bottom >= floorY) {
-          // 바닥에 닿으면 단어 제거 및 라이프 차감
           game.removeChild(w);
           activeWords.splice(i, 1);
           fallen++;
           updateLives();
-          if (fallen >= 3) return fail();
+          if (fallen >= 3) fail();
         } else {
-          const top = parseFloat(w.style.top);
-          w.style.top = `${top + w.speed}vh`;
+          const t = parseFloat(w.style.top);
+          w.style.top = `${t + w.speed}vh`;
         }
       });
       requestAnimationFrame(animate);
     }
-
     inputBox.addEventListener('keydown', e => {
       if (!gameActive || e.key !== 'Enter') return;
       const val = inputBox.value.trim();
       inputBox.value = '';
-      let matched = false;
+      let found = false;
       activeWords.forEach((w, i) => {
         if (w.textContent === val) {
-          matched = true;
+          found = true;
+          successSound.pause(); successSound.currentTime = 0;
           successSound.play();
           game.removeChild(w);
           activeWords.splice(i, 1);
           successCount++;
           updateScore();
-          if (successCount >= 15) return success();
+          if (successCount >= 15) success();
         }
       });
-      if (!matched) failSound.play();
+      if (!found) failSound.pause(), failSound.currentTime = 0, failSound.play();
     });
-
-    function updateLives() {
-      livesDisplay.textContent = '❤️'.repeat(Math.max(0, 3 - fallen));
-    }
-
-    function updateScore() {
-      scoreDisplay.textContent = `${successCount}/15`;
-    }
-
+    function updateLives() { livesDisplay.textContent = '❤️'.repeat(Math.max(0, 3 -fallen)); }
+    function updateScore() { scoreDisplay.textContent = `${successCount}/15`; }
     function fail() {
-      gameActive = false;
-      clearInterval(intervalId);
-      bgMusic.pause();
-      failSound.play();
-      document.getElementById('failOverlay').style.display = 'flex';
-      game.style.display = 'none';
+      gameActive = false; clearInterval(intervalId); bgMusic.pause();
+      failSound.pause(); failSound.currentTime = 0; failSound.play();
+      document.getElementById('failOverlay').style.display = 'flex'; game.style.display = 'none';
     }
-
     function success() {
-      gameActive = false;
-      clearInterval(intervalId);
-      bgMusic.pause();
-      successSound.play();
-      document.getElementById('successOverlay').style.display = 'flex';
-      game.style.display = 'none';
+      gameActive = false; clearInterval(intervalId); bgMusic.pause();
+      successSound.pause(); successSound.currentTime = 0; successSound.play();
+      document.getElementById('successOverlay').style.display = 'flex'; game.style.display = 'none';
     }
   </script>
 </body>
