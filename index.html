@@ -61,6 +61,7 @@
       padding: 1vw 2vw;
       margin-top: 2vw;
       cursor: pointer;
+      color: #000;
     }
   </style>
 </head>
@@ -69,7 +70,7 @@
   <audio id="bgMusic" loop>
     <source src="background.mp3" type="audio/mpeg">
   </audio>
-  <!-- 성공/실패 효과음 삽입 -->
+  <!-- 성공/실패 효과음 -->
   <audio id="successSound"><source src="success.mp3" type="audio/mpeg"></audio>
   <audio id="failSound"><source src="fail.mp3" type="audio/mpeg"></audio>
 
@@ -83,7 +84,7 @@
 
   <!-- 게임 화면 -->
   <div id="game">
-    <!-- 게임 배경 이미지: 원하는 파일명으로 교체 -->
+    <!-- 게임 배경 이미지: URL 또는 파일명 교체 -->
     <img id="gameBgImage" src="game-background.jpg" alt="게임 배경 이미지">
     <div id="floorLine"></div>
     <div id="lives">❤️❤️❤️</div>
@@ -105,11 +106,7 @@
   </div>
 
   <script>
-    const words = [
-      "사과","바나나","포도","오렌지","키위","수박","멜론",
-      "체리","복숭아","자몽","망고","레몬","라임","딸기",
-      "블루베리","파인애플","코코넛","자두","무화과","석류"
-    ];
+    const words = ["사과","바나나","포도","오렌지","키위","수박","멜론","체리","복숭아","자몽","망고","레몬","라임","딸기","블루베리","파인애플","코코넛","자두","무화과","석류"];
     let activeWords = [];
     let fallen = 0;
     let successCount = 0;
@@ -123,6 +120,7 @@
     const failSound = document.getElementById('failSound');
     const livesDisplay = document.getElementById('lives');
     const scoreDisplay = document.getElementById('score');
+    const floorLine = document.getElementById('floorLine');
 
     document.getElementById('startBtn').onclick = () => {
       document.getElementById('startOverlay').style.display = 'none';
@@ -142,7 +140,7 @@
 
     function spawnWord() {
       const word = document.createElement('div');
-      word.className = 'word'; 
+      word.className = 'word';
       word.textContent = words[Math.floor(Math.random() * words.length)];
       word.style.left = `${Math.random() * 90}vw`;
       word.style.top = '-5vh';
@@ -153,15 +151,18 @@
 
     function animate() {
       if (!gameActive) return;
-      activeWords.forEach((w, i) => {
-        const top = parseFloat(w.style.top);
-        if (top > 90) { 
+      const floorY = floorLine.getBoundingClientRect().top;
+      activeWords.slice().forEach((w, i) => {
+        const rect = w.getBoundingClientRect();
+        if (rect.bottom >= floorY) {
+          // 바닥에 닿으면 단어 제거 및 라이프 차감
           game.removeChild(w);
           activeWords.splice(i, 1);
           fallen++;
           updateLives();
-          if (fallen >= 3) fail();
+          if (fallen >= 3) return fail();
         } else {
+          const top = parseFloat(w.style.top);
           w.style.top = `${top + w.speed}vh`;
         }
       });
@@ -181,7 +182,7 @@
           activeWords.splice(i, 1);
           successCount++;
           updateScore();
-          if (successCount >= 15) success();
+          if (successCount >= 15) return success();
         }
       });
       if (!matched) failSound.play();
